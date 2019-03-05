@@ -1,2 +1,2 @@
 # openva-client
-Open Voice Assistant
+Open Voice Assistant - Client
