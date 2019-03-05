@@ -4,3 +4,8 @@ cd $(dirname $0)
 
 mpd etc/mpd_player.conf
 mpd etc/mpd_voice.conf
+
+while :; do
+    ./openva-client
+    sleep 3
+done
