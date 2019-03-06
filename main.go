@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/tb0hdan/openva-server/api"
+	"google.golang.org/grpc"
 	"io"
 	"log"
 	"os"
@@ -21,7 +23,11 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/api/transport"
 	speechpb "google.golang.org/genproto/googleapis/cloud/speech/v1"
+
 )
+
+const address     = "localhost:50001"
+
 
 var micStopCh = make(chan bool, 1)
 
@@ -134,6 +140,15 @@ func sysExit(s string) {
 }
 
 func main() {
+	fmt.Println("System UUID: ", GetSysUUID())
+	// Set up a connection to the server.
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+	client := api.NewOpenVAServiceClient(conn)
+
 	// Clean shutdown
 	sig := make(chan os.Signal, 1)
 	commands := make(chan string)
@@ -149,7 +164,7 @@ func main() {
 	portaudio.Initialize()
 	defer portaudio.Terminate()
 
-	go commandDispatcher(commands)
+	go commandDispatcher(commands, client)
 
 	// open the mic
 	mic := &Sound{}
