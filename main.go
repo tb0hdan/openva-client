@@ -5,74 +5,49 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/tb0hdan/openva-server/api"
-	"google.golang.org/grpc"
 	"io"
 	"log"
 	"os"
 	"os/signal"
 	"time"
 
+	"github.com/tb0hdan/openva-server/api"
+	"google.golang.org/grpc"
+
 	"github.com/brentnd/go-snowboy"
 
-	"cloud.google.com/go/speech/apiv1"
 	"github.com/gordonklaus/portaudio"
-	"golang.org/x/net/context"
-	"google.golang.org/api/option"
-	"google.golang.org/api/transport"
-	speechpb "google.golang.org/genproto/googleapis/cloud/speech/v1"
-
 )
 
-const address     = "localhost:50001"
-
+const address = "localhost:50001"
 
 var micStopCh = make(chan bool, 1)
 
-func getStream() (stream speechpb.Speech_StreamingRecognizeClient) {
-	// connect to Google for a set duration to avoid running forever
-	// and charge the user a lot of money.
-	runDuration := 70 * time.Second
-	bgctx := context.Background()
-	ctx, _ := context.WithDeadline(bgctx, time.Now().Add(runDuration))
-	conn, err := transport.DialGRPC(ctx,
-		option.WithEndpoint("speech.googleapis.com:443"),
-		option.WithScopes("https://www.googleapis.com/auth/cloud-platform"),
-	)
+func getStream() (stream api.OpenVAService_STTClient){
+
+	// Set up a connection to the server.
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
 
-	client, err := speech.NewClient(ctx)
+	runDuration := 70 * time.Second
+	bgctx := context.Background()
+	ctx, _ := context.WithDeadline(bgctx, time.Now().Add(runDuration))
+
+	client := api.NewOpenVAServiceClient(conn)
+	stream, err = client.STT(ctx)
 	if err != nil {
-		log.Fatal(err)
-	}
-	stream, err = client.StreamingRecognize(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// Send the initial configuration message.
-	if err := stream.Send(&speechpb.StreamingRecognizeRequest{
-		StreamingRequest: &speechpb.StreamingRecognizeRequest_StreamingConfig{
-			StreamingConfig: &speechpb.StreamingRecognitionConfig{
-				Config: &speechpb.RecognitionConfig{
-					// Uncompressed 16-bit signed little-endian samples (Linear PCM).
-					Encoding:        speechpb.RecognitionConfig_LINEAR16,
-					SampleRateHertz: 16000,
-					LanguageCode:    "en-US",
-				},
-			},
-		},
-	}); err != nil {
 		log.Fatal(err)
 	}
 	return
 }
 
-func streamReader(stream speechpb.Speech_StreamingRecognizeClient, micCh chan bool, commands chan string) {
+func streamReader(stream api.OpenVAService_STTClient, micCh chan bool, commands chan string) {
 	breakRequested := false
 	for {
 		if breakRequested {
@@ -86,10 +61,7 @@ func streamReader(stream speechpb.Speech_StreamingRecognizeClient, micCh chan bo
 			log.Println("Cannot stream results: %v", err)
 			break
 		}
-		if err := resp.Error; err != nil {
-			log.Println("Could not recognize: %v", err)
-			break
-		}
+
 		for _, result := range resp.Results {
 			fmt.Printf("Result: %+v\n", result)
 			for _, msg := range result.Alternatives {
@@ -102,10 +74,9 @@ func streamReader(stream speechpb.Speech_StreamingRecognizeClient, micCh chan bo
 	micCh <- true
 }
 
-func micPoll(stream speechpb.Speech_StreamingRecognizeClient, micCh chan bool, mic *Sound) {
+func micPoll(stream api.OpenVAService_STTClient, micCh chan bool, mic *Sound) {
 	var (
 		bufWriter bytes.Buffer
-		err       error
 		dummy     []byte
 	)
 
@@ -116,13 +87,12 @@ func micPoll(stream speechpb.Speech_StreamingRecognizeClient, micCh chan bool, m
 
 		binary.Write(&bufWriter, binary.LittleEndian, mic.data)
 
-		if err = stream.Send(&speechpb.StreamingRecognizeRequest{
-			StreamingRequest: &speechpb.StreamingRecognizeRequest_AudioContent{
-				AudioContent: bufWriter.Bytes(),
-			},
-		}); err != nil {
+
+		err := stream.Send(&api.STTRequest{STTBuffer: bufWriter.Bytes()})
+		if err != nil {
 			log.Printf("Could not send audio: %v", err)
 		}
+
 		select {
 		case <-micCh:
 			fmt.Println("handing off the mic")
