@@ -1,11 +1,11 @@
 // includes code from
 // https://github.com/mattetti/google-speech/blob/master/cmd/livecaption/main.go
 // https://github.com/brentnd/go-snowboy/blob/master/example/listen.go
+// https://github.com/pahanini/go-grpc-bidirectional-streaming-example/blob/master/src/server/server.go
 package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -13,6 +13,8 @@ import (
 	"os"
 	"os/signal"
 	"time"
+
+	"context"
 
 	"github.com/tb0hdan/openva-server/api"
 	"google.golang.org/grpc"
@@ -25,27 +27,6 @@ import (
 const address = "localhost:50001"
 
 var micStopCh = make(chan bool, 1)
-
-func getStream() (stream api.OpenVAService_STTClient){
-
-	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
-	}
-	defer conn.Close()
-
-	runDuration := 70 * time.Second
-	bgctx := context.Background()
-	ctx, _ := context.WithDeadline(bgctx, time.Now().Add(runDuration))
-
-	client := api.NewOpenVAServiceClient(conn)
-	stream, err = client.STT(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return
-}
 
 func streamReader(stream api.OpenVAService_STTClient, micCh chan bool, commands chan string) {
 	breakRequested := false
@@ -87,7 +68,6 @@ func micPoll(stream api.OpenVAService_STTClient, micCh chan bool, mic *Sound) {
 
 		binary.Write(&bufWriter, binary.LittleEndian, mic.data)
 
-
 		err := stream.Send(&api.STTRequest{STTBuffer: bufWriter.Bytes()})
 		if err != nil {
 			log.Printf("Could not send audio: %v", err)
@@ -101,6 +81,42 @@ func micPoll(stream api.OpenVAService_STTClient, micCh chan bool, mic *Sound) {
 		}
 		fmt.Print(".")
 	}
+	fmt.Println("micPoll exit")
+}
+
+func RunRecognition(micStopCh chan bool, commands chan string, mic *Sound) {
+
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("can not connect with server %v", err)
+	}
+	client := api.NewOpenVAServiceClient(conn)
+	stream, err := client.STT(context.Background())
+	if err != nil {
+		log.Fatalf("openn stream error %v", err)
+
+	}
+
+	ctx := stream.Context()
+	go func() {
+
+		micPoll(stream, micStopCh, mic)
+
+		if err := stream.CloseSend(); err != nil {
+			log.Println(err)
+		}
+	}()
+
+	go func() {
+		<-ctx.Done()
+		if err := ctx.Err(); err != nil {
+			log.Println(err)
+		}
+		close(micStopCh)
+	}()
+
+	streamReader(stream, micStopCh, commands)
+
 }
 
 func sysExit(s string) {
@@ -148,9 +164,7 @@ func main() {
 	// set the handlers
 	d.HandleFunc(snowboy.NewHotword("./resources/alexa_02092017.umdl", 0.5), func(string) {
 		fmt.Println("You said the hotword!")
-		stream := getStream()
-		go micPoll(stream, micStopCh, mic)
-		streamReader(stream, micStopCh, commands)
+		RunRecognition(micStopCh, commands, mic)
 	})
 
 	d.HandleSilenceFunc(1*time.Second, func(string) {

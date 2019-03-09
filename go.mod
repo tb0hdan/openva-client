@@ -7,6 +7,6 @@ require (
 	github.com/gordonklaus/portaudio v0.0.0-20180817120803-00e7307ccd93
 	github.com/satori/go.uuid v1.2.0
 	github.com/shirou/gopsutil v2.18.12+incompatible
-	github.com/tb0hdan/openva-server v0.0.0-20190307225537-8ee57a914fdb
+	github.com/tb0hdan/openva-server v0.0.0-20190308125257-18239d8fe370
 	google.golang.org/grpc v1.19.0
 )
