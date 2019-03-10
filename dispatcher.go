@@ -6,7 +6,7 @@ import (
 	"github.com/tb0hdan/openva-server/api"
 	"io/ioutil"
 	"log"
-	"openva-client/player"
+	mp3player "openva-client/player"
 	"os"
 	"path"
 	"strings"
@@ -43,15 +43,34 @@ func Say(text string, client api.OpenVAServiceClient) {
 		os.Rename(fname, cachedFile)
 	}
 
-	player.Play(cachedFile)
+	mp3player.Play(cachedFile)
 }
 
-func commandDispatcher(commands <-chan string, client api.OpenVAServiceClient) {
+func ShuffleLibrary(client api.OpenVAServiceClient, player *Player) {
+	items, err := client.Library(context.Background(), &api.LibraryFilterRequest{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	urls := make([]string, 0)
+	for _, item := range items.Items {
+		urls = append(urls, item.URL)
+	}
+	player.ShuffleURLList(urls)
+
+	}
+
+func commandDispatcher(commands <-chan string, client api.OpenVAServiceClient, player *Player) {
 	for cmd := range commands {
 		cmd = strings.TrimSpace(cmd)
 		fmt.Println(cmd)
-		first := strings.Split(cmd, " ")[0]
+		first := strings.ToLower(strings.Split(cmd, " ")[0])
 		switch first {
+		case "pause":
+			player.Pause()
+		case "resume":
+			player.Resume()
+		case "shuffle":
+			go ShuffleLibrary(client, player)
 		case "reboot":
 			sysExit("USER_EXIT_REQ")
 		default:

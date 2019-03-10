@@ -133,6 +133,11 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
+
+	player := &Player{}
+	player.Connect("")
+	defer player.Close()
+
 	client := api.NewOpenVAServiceClient(conn)
 
 	// Clean shutdown
@@ -150,7 +155,7 @@ func main() {
 	portaudio.Initialize()
 	defer portaudio.Terminate()
 
-	go commandDispatcher(commands, client)
+	go commandDispatcher(commands, client, player)
 
 	// open the mic
 	mic := &Sound{}
@@ -161,9 +166,11 @@ func main() {
 	d := snowboy.NewDetector("./resources/common.res")
 	defer d.Close()
 
+
 	// set the handlers
 	d.HandleFunc(snowboy.NewHotword("./resources/alexa_02092017.umdl", 0.5), func(string) {
 		fmt.Println("You said the hotword!")
+		player.Pause()
 		RunRecognition(micStopCh, commands, mic)
 	})
 
