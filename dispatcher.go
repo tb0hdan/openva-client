@@ -122,6 +122,19 @@ func ParseVolume(cmd string, player *Player) {
 	player.SetVolume(mpdVolume)
 }
 
+func HandleServerSideCommand(cmd string, client api.OpenVAServiceClient) {
+	reply, err := client.HandlerServerSideCommand(context.Background(), &api.TTSRequest{Text: cmd})
+	if err != nil {
+		Say("I could not understand you", client)
+		return
+	}
+	f, err := ioutil.TempFile("", "")
+	defer os.Remove(f.Name())
+	ioutil.WriteFile(f.Name(), reply.MP3Response, 0644)
+	mp3player.Play(f.Name())
+
+}
+
 func commandDispatcher(commands <-chan string, client api.OpenVAServiceClient, player *Player) {
 	for cmd := range commands {
 		cmd = strings.TrimSpace(cmd)
@@ -143,12 +156,13 @@ func commandDispatcher(commands <-chan string, client api.OpenVAServiceClient, p
 			player.Next()
 		// Shuffle whole library
 		case "shuffle":
+			Say("Shuffling your library", client)
 			go ShuffleLibrary(client, player)
 		case "reboot":
+			Say("Rebooting", client)
 			sysExit("USER_EXIT_REQ")
 		default:
-			Say(cmd, client)
-			fmt.Println("Unknown command")
+			go HandleServerSideCommand(cmd, client)
 		}
 	}
 }

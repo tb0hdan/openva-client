@@ -77,12 +77,11 @@ func micPoll(stream api.OpenVAService_STTClient, micCh chan bool, mic *Sound) {
 		select {
 		case <-micCh:
 			fmt.Println("handing off the mic")
-			break
+			return
 		default:
 		}
 		fmt.Print(".")
 	}
-	fmt.Println("micPoll exit")
 }
 
 func RunRecognition(micStopCh chan bool, commands chan string, mic *Sound) {
