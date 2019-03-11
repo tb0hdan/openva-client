@@ -66,7 +66,7 @@ func ShuffleLibrary(client api.OpenVAServiceClient, player *Player) {
 func PlayParser(cmd string, client api.OpenVAServiceClient, player *Player) {
 	var what string
 	re := regexp.MustCompile(`^play (.*) from my library`)
-	submatch := re.FindStringSubmatch(cmd)
+	submatch := re.FindStringSubmatch(strings.ToLower(cmd))
 	if re.MatchString(cmd) && len(submatch) > 1 {
 		what = strings.TrimSpace(submatch[1])
 	}
