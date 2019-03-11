@@ -9,6 +9,7 @@ import (
 	mp3player "openva-client/player"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -46,8 +47,8 @@ func Say(text string, client api.OpenVAServiceClient) {
 	mp3player.Play(cachedFile)
 }
 
-func ShuffleLibrary(client api.OpenVAServiceClient, player *Player) {
-	items, err := client.Library(context.Background(), &api.LibraryFilterRequest{})
+func ShuffleLibraryWithCriteria(client api.OpenVAServiceClient, player *Player, criteria string) {
+	items, err := client.Library(context.Background(), &api.LibraryFilterRequest{Criteria:criteria})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -56,8 +57,25 @@ func ShuffleLibrary(client api.OpenVAServiceClient, player *Player) {
 		urls = append(urls, item.URL)
 	}
 	player.ShuffleURLList(urls)
+}
 
+func ShuffleLibrary(client api.OpenVAServiceClient, player *Player) {
+	ShuffleLibraryWithCriteria(client, player, "")
+}
+
+func PlayParser(cmd string, client api.OpenVAServiceClient, player *Player) {
+	var what string
+	re := regexp.MustCompile(`^play (.*) from my library`)
+	submatch := re.FindStringSubmatch(cmd)
+	if re.MatchString(cmd) && len(submatch) > 1 {
+		what = strings.TrimSpace(submatch[1])
 	}
+	if len(what) == 0 {
+		// FIXME: Extend here (or at least say something)
+		return
+	}
+	ShuffleLibraryWithCriteria(client, player, what)
+}
 
 func commandDispatcher(commands <-chan string, client api.OpenVAServiceClient, player *Player) {
 	for cmd := range commands {
@@ -65,6 +83,8 @@ func commandDispatcher(commands <-chan string, client api.OpenVAServiceClient, p
 		fmt.Println(cmd)
 		first := strings.ToLower(strings.Split(cmd, " ")[0])
 		switch first {
+		case "play":
+			go PlayParser(cmd, client, player)
 		case "pause":
 			player.Pause()
 		case "resume":

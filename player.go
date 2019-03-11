@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/fhs/gompd/mpd"
+	"github.com/tb0hdan/gompd/mpd"
 	log "github.com/sirupsen/logrus"
 )
 
