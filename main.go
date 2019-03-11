@@ -22,6 +22,7 @@ import (
 	"github.com/brentnd/go-snowboy"
 
 	"github.com/gordonklaus/portaudio"
+	"github.com/shirou/gopsutil/host"
 )
 
 const address = "localhost:50001"
@@ -76,7 +77,7 @@ func micPoll(stream api.OpenVAService_STTClient, micCh chan bool, mic *Sound) {
 		select {
 		case <-micCh:
 			fmt.Println("handing off the mic")
-			return
+			break
 		default:
 		}
 		fmt.Print(".")
@@ -125,8 +126,65 @@ func sysExit(s string) {
 	os.Exit(0)
 }
 
+
+func HeartBeat(client api.OpenVAServiceClient, player *Player) {
+	heartbeatExit := make(chan bool)
+	v, _ := host.Info()
+	stream, err := client.HeartBeat(context.Background())
+	if err != nil {
+		fmt.Println("Heartbeat stopped...", err)
+		return
+	}
+	ctx := stream.Context()
+	go func() {
+		defer func() {
+			if err := stream.CloseSend(); err != nil {
+				log.Println(err)
+			}
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				heartbeatExit <- true
+				break
+			case <-heartbeatExit:
+				break
+			default:
+			}
+
+			err = stream.Send(&api.HeartBeatMessage{
+				SystemInformation: &api.SystemInformationMessage{
+					SystemUUID: v.HostID,
+					UptimeSinceEpoch: time.Now().Unix(),
+				},
+				PlayerState: &api.PlayerStateMessage{
+					NowPlaying: player.NowPlaying,
+				},
+			})
+			time.Sleep(10 * time.Second)
+		}
+
+	}()
+	for {
+		resp, err := stream.Recv()
+		if err == io.EOF {
+			heartbeatExit <- true
+			break
+		}
+		if err != nil {
+			heartbeatExit <- true
+			log.Println("Cannot stream results: %v", err)
+			break
+		}
+		log.Println(resp)
+	}
+	<-heartbeatExit
+	log.Println("Hearbeat exit")
+}
+
 func main() {
-	fmt.Println("System UUID: ", GetSysUUID())
+	v, _ := host.Info()
+	fmt.Println("System UUID: ", v.HostID)
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
@@ -136,6 +194,7 @@ func main() {
 
 	player := &Player{}
 	player.Connect("")
+	go player.NowPlayingUpdater()
 	defer player.Close()
 
 	client := api.NewOpenVAServiceClient(conn)
@@ -156,6 +215,7 @@ func main() {
 	defer portaudio.Terminate()
 
 	go commandDispatcher(commands, client, player)
+	go HeartBeat(client, player)
 
 	// open the mic
 	mic := &Sound{}

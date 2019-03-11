@@ -1,14 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"github.com/tb0hdan/gompd-transition/v2/mpd"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 type Player struct {
 	Conn   *mpd.Client
 	Volume int
 	Paused bool
+	NowPlaying string
 }
 
 func (p *Player) Connect(address string) {
@@ -103,4 +106,32 @@ func (p *Player) Stop() {
 
 func (p *Player) Shuffle() {
 	p.Conn.Shuffle(0, -1)
+}
+
+func (p *Player) NowPlayingUpdater() {
+	line := ""
+	line1 := ""
+	for {
+		status, err := p.Conn.Status()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		song, err := p.Conn.CurrentSong()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		if status["state"] == "play" {
+			if song["Artist"] != "" {
+				line1 = fmt.Sprintf("%s - %s", song["Artist"], song["Title"])
+			} else {
+				line1 = song["Title"]
+			}
+		}
+		if line != line1 {
+			line = line1
+			p.NowPlaying = line
+			fmt.Println(line)
+		}
+		time.Sleep(1e9)
+	}
 }
