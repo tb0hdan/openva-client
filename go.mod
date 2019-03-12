@@ -13,6 +13,6 @@ require (
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
 	github.com/sirupsen/logrus v1.4.0
 	github.com/tb0hdan/gompd-transition/v2 v2.0.6
-	github.com/tb0hdan/openva-server v0.0.0-20190311210614-6a57e1ec9ac8
+	github.com/tb0hdan/openva-server v0.0.0-20190312212627-8bb83c44b3db
 	google.golang.org/grpc v1.19.0
 )
