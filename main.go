@@ -7,7 +7,10 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"flag"
 	"fmt"
+	"github.com/brentnd/go-snowboy"
+	"github.com/gordonklaus/portaudio"
 	"io"
 	"log"
 	"net/http"
@@ -21,9 +24,6 @@ import (
 	"github.com/tb0hdan/openva-server/api"
 	"google.golang.org/grpc"
 
-	"github.com/brentnd/go-snowboy"
-
-	"github.com/gordonklaus/portaudio"
 	"github.com/shirou/gopsutil/host"
 )
 
@@ -35,6 +35,7 @@ var (
 	TTSWebServerURL = fmt.Sprintf("http://%s/tts/", TTSWebServerAddress)
 	TTSCacheDirectory = path.Join("cache", "tts")
 	micStopCh = make(chan bool, 1)
+	CLI = flag.Bool("cli", false, "CLI Only mode")
 )
 
 func streamReader(stream api.OpenVAService_STTClient, micCh chan bool, commands chan string) {
@@ -176,7 +177,8 @@ func HeartBeat(client api.OpenVAServiceClient, player *Player) {
 			log.Println("Cannot stream results: %v", err)
 			break
 		}
-		log.Println(resp)
+		_ = resp
+		//log.Println(resp)
 	}
 	<-heartbeatExit
 	log.Println("Hearbeat exit")
@@ -201,7 +203,45 @@ func TTSWebServer(address string) {
 	}()
 }
 
+func RecognitionMode(player *Player, commands chan string, client api.OpenVAServiceClient) {
+
+	// connect to the audio drivers
+	portaudio.Initialize()
+	defer portaudio.Terminate()
+
+	// open the mic
+	mic := &Sound{}
+	mic.Init()
+	defer mic.Close()
+
+	// open the snowboy detector
+	d := snowboy.NewDetector("./resources/common.res")
+	defer d.Close()
+
+
+	// set the handlers
+	d.HandleFunc(snowboy.NewHotword("./resources/alexa_02092017.umdl", 0.5), func(string) {
+		fmt.Println("You said the hotword!")
+		player.Pause()
+		RunRecognition(micStopCh, commands, mic, client)
+	})
+
+	d.HandleSilenceFunc(1*time.Second, func(string) {
+		fmt.Println("Silence detected.")
+	})
+
+	// display the detector's expected audio format
+	sr, nc, bd := d.AudioFormat()
+	fmt.Printf("sample rate=%d, num channels=%d, bit depth=%d\n", sr, nc, bd)
+
+	// start detecting using the microphone
+	d.ReadAndDetect(mic)
+}
+
+
 func main() {
+	flag.Parse()
+
 	v, _ := host.Info()
 	fmt.Println("System UUID: ", v.HostID)
 	// Set up a connection to the server.
@@ -242,43 +282,18 @@ func main() {
 
 	dispatcher := &Dispatcher{
 		OpenVAServiceClient: client,
-		Player: player,
-		Voice: voice,
-		Commands: commands,
+		Player:              player,
+		Voice:               voice,
+		Commands:            commands,
 	}
-
-	// connect to the audio drivers
-	portaudio.Initialize()
-	defer portaudio.Terminate()
 
 	go dispatcher.Run()
 	go HeartBeat(client, player)
 
-	// open the mic
-	mic := &Sound{}
-	mic.Init()
-	defer mic.Close()
 
-	// open the snowboy detector
-	d := snowboy.NewDetector("./resources/common.res")
-	defer d.Close()
-
-
-	// set the handlers
-	d.HandleFunc(snowboy.NewHotword("./resources/alexa_02092017.umdl", 0.5), func(string) {
-		fmt.Println("You said the hotword!")
-		player.Pause()
-		RunRecognition(micStopCh, commands, mic, client)
-	})
-
-	d.HandleSilenceFunc(1*time.Second, func(string) {
-		fmt.Println("Silence detected.")
-	})
-
-	// display the detector's expected audio format
-	sr, nc, bd := d.AudioFormat()
-	fmt.Printf("sample rate=%d, num channels=%d, bit depth=%d\n", sr, nc, bd)
-
-	// start detecting using the microphone
-	d.ReadAndDetect(mic)
+	if ! *CLI {
+		RecognitionMode(player, commands, client)
+	} else {
+		RunCLI(commands)
+	}
 }

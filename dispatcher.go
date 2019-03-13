@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -97,6 +96,7 @@ func (d *Dispatcher) SayFile(text string) string {
 func (d *Dispatcher) Say(text string) {
 	cachedFile := d.SayFile(text)
 	base := path.Base(cachedFile)
+
 	url := TTSWebServerURL + base
 	d.Voice.PlayURL(url)
 }
@@ -143,7 +143,7 @@ func (d *Dispatcher) HandleServerSideCommand(cmd string) {
 func (d *Dispatcher) Run() {
 	for cmd := range d.Commands {
 		cmd = strings.TrimSpace(cmd)
-		fmt.Println(cmd)
+		// fmt.Println(cmd)
 		first := strings.ToLower(strings.Split(cmd, " ")[0])
 		switch first {
 		case "play":
