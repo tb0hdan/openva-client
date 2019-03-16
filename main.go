@@ -296,6 +296,7 @@ func main() {
 		Player:              player,
 		Voice:               voice,
 		Commands:            commands,
+		HostInfo:            v,
 	}
 
 	go dispatcher.Run()

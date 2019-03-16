@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/shirou/gopsutil/host"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"time"
 
@@ -59,13 +59,12 @@ func ParseVolume(cmd string, player *Player) {
 	player.SetVolume(mpdVolume)
 }
 
-//
-
 type Dispatcher struct {
 	OpenVAServiceClient api.OpenVAServiceClient
 	Player              *Player
 	Voice               *Player
 	Commands            <-chan string
+	HostInfo            *host.InfoStat
 }
 
 func (d *Dispatcher) SayFile(text string) string {
@@ -101,71 +100,51 @@ func (d *Dispatcher) Say(text string) {
 	d.Voice.PlayURL(url)
 }
 
-func (d *Dispatcher) ShuffleLibraryWithCriteria(criteria string) {
-	items, err := d.OpenVAServiceClient.Library(context.Background(), &api.LibraryFilterRequest{Criteria: criteria})
+func (d *Dispatcher) HandleServerSideCommand(cmd string) {
+	reply, err := d.OpenVAServiceClient.HandleServerSideCommand(context.Background(), &api.TTSRequest{Text: cmd})
 	if err != nil {
-		log.Fatal(err)
+		d.Say("I could not understand you")
+		return
 	}
+	if reply.IsError {
+		d.Say(reply.TextResponse)
+		return
+	}
+
 	urls := make([]string, 0)
-	for _, item := range items.Items {
+	for _, item := range reply.Items {
 		urls = append(urls, item.URL)
 	}
 	d.Player.ShuffleURLList(urls)
 }
 
-func (d *Dispatcher) ShuffleLibrary() {
-	d.ShuffleLibraryWithCriteria("")
-}
-
-func (d *Dispatcher) PlayParser(cmd string) {
-	var what string
-	re := regexp.MustCompile(`^play (.*) from my library`)
-	submatch := re.FindStringSubmatch(strings.ToLower(cmd))
-	if re.MatchString(cmd) && len(submatch) > 1 {
-		what = strings.TrimSpace(submatch[1])
-	}
-	if len(what) == 0 {
-		// FIXME: Extend here (or at least say something)
-		return
-	}
-	d.ShuffleLibraryWithCriteria(what)
-}
-
-func (d *Dispatcher) HandleServerSideCommand(cmd string) {
-	reply, err := d.OpenVAServiceClient.HandlerServerSideCommandText(context.Background(), &api.TTSRequest{Text: cmd})
-	if err != nil {
-		d.Say("I could not understand you")
-		return
-	}
-	d.Say(reply.Text)
-}
-
 func (d *Dispatcher) Run() {
+	// FIXME: Use timeout
+	cfg, err := d.OpenVAServiceClient.ClientConfig(context.Background(), &api.ClientMessage{
+		SystemUUID: d.HostInfo.HostID,
+	})
+	if err != nil {
+		log.Fatalf("Could not get configuration: %+v", err)
+	}
+
 	for cmd := range d.Commands {
 		cmd = strings.TrimSpace(cmd)
-		// fmt.Println(cmd)
 		first := strings.ToLower(strings.Split(cmd, " ")[0])
 		switch first {
-		case "play":
-			go d.PlayParser(cmd)
 		// Basic controls
-		case "volume":
+		case cfg.Locale.VolumeMessage:
 			ParseVolume(cmd, d.Player)
-		case "pause":
+		case cfg.Locale.PauseMessage:
 			d.Player.Pause()
-		case "resume":
+		case cfg.Locale.ResumeMessage:
 			d.Player.Resume()
-		case "stop":
+		case cfg.Locale.StopMessage:
 			d.Player.Stop()
-		case "next":
+		case cfg.Locale.NextMessage:
 			d.Player.Next()
-		case "previous":
+		case cfg.Locale.PreviousMessage:
 			d.Player.Previous()
-		// Shuffle whole library
-		case "shuffle":
-			d.Say("Shuffling your library")
-			go d.ShuffleLibrary()
-		case "reboot":
+		case cfg.Locale.RebootMessage:
 			d.Say("Rebooting")
 			sysExit("USER_EXIT_REQ")
 		default:
