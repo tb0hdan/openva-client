@@ -34,7 +34,6 @@ const (
 var (
 	TTSWebServerURL = fmt.Sprintf("http://%s/tts/", TTSWebServerAddress)
 	TTSCacheDirectory = path.Join("cache", "tts")
-	micStopCh = make(chan bool, 1)
 	CLI = flag.Bool("cli", false, "CLI Only mode")
 )
 
@@ -54,7 +53,7 @@ func streamReader(stream api.OpenVAService_STTClient, micCh chan bool, commands 
 		}
 
 		for _, result := range resp.Results {
-			fmt.Printf("Result: %+v\n", result)
+			log.Printf("Result: %+v\n", result)
 			for _, msg := range result.Alternatives {
 				commands <- msg.Transcript
 			}
@@ -85,46 +84,58 @@ func micPoll(stream api.OpenVAService_STTClient, micCh chan bool, mic *Sound) {
 
 		select {
 		case <-micCh:
-			fmt.Println("handing off the mic")
+			log.Println("handing off the mic")
 			return
 		default:
 		}
-		fmt.Print(".")
+		log.Print(".")
 	}
 }
 
-func RunRecognition(micStopCh chan bool, commands chan string, mic *Sound, client api.OpenVAServiceClient) {
-	stream, err := client.STT(context.Background())
+func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceClient) {
+	micCh := make(chan bool, 1)
+
+	runDuration := 10 * time.Second
+	bgctx := context.Background()
+	ctx, _ := context.WithDeadline(bgctx, time.Now().Add(runDuration))
+	// max runDuration
+	stream, err := client.STT(ctx)
 	if err != nil {
 		log.Fatalf("openn stream error %v", err)
 
 	}
 
-	ctx := stream.Context()
+	ctx = stream.Context()
 	go func() {
 
-		micPoll(stream, micStopCh, mic)
+		micPoll(stream, micCh, mic)
 
 		if err := stream.CloseSend(); err != nil {
-			log.Println(err)
+			log.Println("Recognition poll ", err)
 		}
+		log.Println("Recognition poll exit")
 	}()
 
 	go func() {
-		<-ctx.Done()
-		if err := ctx.Err(); err != nil {
-			log.Println(err)
+		select {
+		case  <-ctx.Done():
+			break
+		case <-micCh:
+			break
 		}
-		close(micStopCh)
+		if err := ctx.Err(); err != nil {
+			log.Println("Recognition ctx ", err)
+		}
+		close(micCh)
+		log.Println("Recognition ctx exit")
 	}()
 
-	streamReader(stream, micStopCh, commands)
-
+	streamReader(stream, micCh, commands)
+	log.Println("Recognition exit...")
 }
 
 func sysExit(s string) {
-	fmt.Println("received signal", s, "shutting down")
-	micStopCh <- true
+	log.Println("received signal", s, "shutting down")
 	os.Exit(0)
 }
 
@@ -133,7 +144,7 @@ func HeartBeat(client api.OpenVAServiceClient, player *Player) {
 	v, _ := host.Info()
 	stream, err := client.HeartBeat(context.Background())
 	if err != nil {
-		fmt.Println("Heartbeat stopped...", err)
+		log.Println("Heartbeat stopped...", err)
 		return
 	}
 	ctx := stream.Context()
@@ -221,18 +232,18 @@ func RecognitionMode(player *Player, commands chan string, client api.OpenVAServ
 
 	// set the handlers
 	d.HandleFunc(snowboy.NewHotword("./resources/alexa_02092017.umdl", 0.5), func(string) {
-		fmt.Println("You said the hotword!")
+		log.Println("You said the hotword!")
 		player.Pause()
-		RunRecognition(micStopCh, commands, mic, client)
+		RunRecognition(commands, mic, client)
 	})
 
 	d.HandleSilenceFunc(1*time.Second, func(string) {
-		fmt.Println("Silence detected.")
+		log.Println("Silence detected.")
 	})
 
 	// display the detector's expected audio format
 	sr, nc, bd := d.AudioFormat()
-	fmt.Printf("sample rate=%d, num channels=%d, bit depth=%d\n", sr, nc, bd)
+	log.Printf("sample rate=%d, num channels=%d, bit depth=%d\n", sr, nc, bd)
 
 	// start detecting using the microphone
 	d.ReadAndDetect(mic)
@@ -243,7 +254,7 @@ func main() {
 	flag.Parse()
 
 	v, _ := host.Info()
-	fmt.Println("System UUID: ", v.HostID)
+	log.Println("System UUID: ", v.HostID)
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(OpenVAServerAddress, grpc.WithInsecure())
 	if err != nil {
