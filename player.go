@@ -100,6 +100,10 @@ func (p *Player) Next() {
 	p.Conn.Next()
 }
 
+func (p *Player) Previous() {
+	p.Conn.Previous()
+}
+
 func (p *Player) Stop() {
 	p.Conn.Stop()
 }

@@ -159,6 +159,8 @@ func (d *Dispatcher) Run() {
 			d.Player.Stop()
 		case "next":
 			d.Player.Next()
+		case "previous":
+			d.Player.Previous()
 		// Shuffle whole library
 		case "shuffle":
 			d.Say("Shuffling your library")
