@@ -2,15 +2,18 @@ package main
 
 import (
 	"fmt"
-	"github.com/tb0hdan/gompd-transition/v2/mpd"
 	log "github.com/sirupsen/logrus"
+	"github.com/tb0hdan/gompd-transition/v2/mpd"
+	"net/url"
+	"regexp"
+	"strings"
 	"time"
 )
 
 type Player struct {
-	Conn   *mpd.Client
-	Volume int
-	Paused bool
+	Conn       *mpd.Client
+	Volume     int
+	Paused     bool
 	NowPlaying string
 }
 
@@ -66,7 +69,6 @@ func (p *Player) ShuffleURLList(urlList []string) {
 	p.Shuffle()
 	p.Play(0)
 }
-
 
 func (p *Player) Pause() {
 	if p.Paused {
@@ -130,6 +132,13 @@ func (p *Player) NowPlayingUpdater() {
 			} else {
 				line1 = song["Title"]
 			}
+			// URL
+			if len(line1) == 0 {
+				artist, _, track := URLToTrack(song["file"])
+				if len(artist) >0 && len(track) > 0 {
+					line1 = fmt.Sprintf("%s - %s", artist, track)
+				}
+			}
 		}
 		if line != line1 {
 			line = line1
@@ -138,4 +147,35 @@ func (p *Player) NowPlayingUpdater() {
 		}
 		time.Sleep(1e9)
 	}
+}
+
+func NormalizeTrack(track string) (result string) {
+	result = strings.TrimSuffix(track, ".mp3")
+	re := regexp.MustCompile(`^[0-9]+\s`)
+	result = re.ReplaceAllString(result, "")
+	return
+}
+
+func URLToTrack(urlValue string) (artist, album, track string) {
+	url, err := url.Parse(urlValue)
+	if err != nil {
+		log.Printf("Could not parse url: %s - %+v", urlValue, err)
+		return
+	}
+	// only valid for our library
+	if !strings.HasPrefix(url.Path, "/music/") {
+		return
+	}
+	processablePath := strings.TrimPrefix(url.Path, "/music/")
+
+	splitPath := strings.Split(processablePath, "/")
+	// Artist / Album / Track
+	if len(splitPath) != 3 {
+		return
+	}
+
+	artist = splitPath[0]
+	album = splitPath[1]
+	track = NormalizeTrack(splitPath[2])
+	return
 }
