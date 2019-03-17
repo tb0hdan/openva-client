@@ -150,9 +150,12 @@ func (p *Player) NowPlayingUpdater() {
 }
 
 func NormalizeTrack(track string) (result string) {
-	result = strings.TrimSuffix(track, ".mp3")
-	re := regexp.MustCompile(`^[0-9]+\s`)
-	result = re.ReplaceAllString(result, "")
+	result = track
+	regexes := []string{`^[0-9]+\s`, `^[0-9]+\-[0-9]+\s`, `\.mp3$`, `\(Official\sMusic\sVideo\)$`}
+	for _, reg := range regexes {
+		re := regexp.MustCompile(reg)
+		result = re.ReplaceAllString(result, "")
+	}
 	return
 }
 
