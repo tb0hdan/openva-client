@@ -95,7 +95,7 @@ func micPoll(stream api.OpenVAService_STTClient, micCh chan bool, mic *Sound) {
 func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceClient) {
 	micCh := make(chan bool, 1)
 
-	runDuration := 10 * time.Second
+	runDuration := 5 * time.Second
 	bgctx := context.Background()
 	ctx, _ := context.WithDeadline(bgctx, time.Now().Add(runDuration))
 	// max runDuration

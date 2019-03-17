@@ -65,6 +65,7 @@ type Dispatcher struct {
 	Voice               *Player
 	Commands            <-chan string
 	HostInfo            *host.InfoStat
+	ClientConfig        *api.ClientConfigMessage
 }
 
 func (d *Dispatcher) SayFile(text string) string {
@@ -103,7 +104,7 @@ func (d *Dispatcher) Say(text string) {
 func (d *Dispatcher) HandleServerSideCommand(cmd string) {
 	reply, err := d.OpenVAServiceClient.HandleServerSideCommand(context.Background(), &api.TTSRequest{Text: cmd})
 	if err != nil {
-		d.Say("I could not understand you")
+		d.Say(d.ClientConfig.Locale.CouldNotUnderstandMessage)
 		return
 	}
 	if reply.IsError {
@@ -119,8 +120,11 @@ func (d *Dispatcher) HandleServerSideCommand(cmd string) {
 }
 
 func (d *Dispatcher) Run() {
-	// FIXME: Use timeout
-	cfg, err := d.OpenVAServiceClient.ClientConfig(context.Background(), &api.ClientMessage{
+	var err error
+
+	ctx, _ := context.WithTimeout(context.Background(), 10 * time.Second)
+
+	d.ClientConfig, err = d.OpenVAServiceClient.ClientConfig(ctx, &api.ClientMessage{
 		SystemUUID: d.HostInfo.HostID,
 	})
 	if err != nil {
@@ -132,21 +136,22 @@ func (d *Dispatcher) Run() {
 		first := strings.ToLower(strings.Split(cmd, " ")[0])
 		switch first {
 		// Basic controls
-		case cfg.Locale.VolumeMessage:
+		case d.ClientConfig.Locale.VolumeMessage:
 			ParseVolume(cmd, d.Player)
-		case cfg.Locale.PauseMessage:
+		case d.ClientConfig.Locale.PauseMessage:
 			d.Player.Pause()
-		case cfg.Locale.ResumeMessage:
+		case d.ClientConfig.Locale.ResumeMessage:
 			d.Player.Resume()
-		case cfg.Locale.StopMessage:
+		case d.ClientConfig.Locale.StopMessage:
 			d.Player.Stop()
-		case cfg.Locale.NextMessage:
+		case d.ClientConfig.Locale.NextMessage:
 			d.Player.Next()
-		case cfg.Locale.PreviousMessage:
+		case d.ClientConfig.Locale.PreviousMessage:
 			d.Player.Previous()
-		case cfg.Locale.RebootMessage:
+		case d.ClientConfig.Locale.RebootMessage:
 			d.Say("Rebooting")
 			sysExit("USER_EXIT_REQ")
+		// Processed by server
 		default:
 			go d.HandleServerSideCommand(cmd)
 		}
