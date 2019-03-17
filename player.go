@@ -156,6 +156,7 @@ func NormalizeTrack(track string) (result string) {
 		re := regexp.MustCompile(reg)
 		result = re.ReplaceAllString(result, "")
 	}
+	result = strings.TrimSpace(result)
 	return
 }
 
