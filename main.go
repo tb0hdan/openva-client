@@ -61,6 +61,7 @@ func streamReader(stream api.OpenVAService_STTClient, micCh chan bool, commands 
 			break
 		}
 	}
+	// Race condition
 	micCh <- true
 }
 
@@ -126,6 +127,7 @@ func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceCl
 		if err := ctx.Err(); err != nil {
 			log.Println("Recognition ctx ", err)
 		}
+		micCh <- true
 		close(micCh)
 		log.Println("Recognition ctx exit")
 	}()

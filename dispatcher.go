@@ -107,9 +107,13 @@ func (d *Dispatcher) HandleServerSideCommand(cmd string) {
 		d.Say(d.ClientConfig.Locale.CouldNotUnderstandMessage)
 		return
 	}
-	if reply.IsError {
+	if reply.IsError && len(reply.TextResponse) > 0 {
 		d.Say(reply.TextResponse)
 		return
+	}
+
+	if len(reply.TextResponse) > 0 {
+		d.Say(reply.TextResponse)
 	}
 
 	urls := make([]string, 0)
