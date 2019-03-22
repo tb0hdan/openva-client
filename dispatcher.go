@@ -3,13 +3,15 @@ package main
 import (
 	"context"
 	"errors"
-	"github.com/shirou/gopsutil/host"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/shirou/gopsutil/host"
 
 	"github.com/tb0hdan/openva-server/api"
 )
@@ -22,7 +24,7 @@ func volumeToMPDVolume(volume int) (int, error) {
 	return -100 + volume*20, nil
 }
 
-func ParseVolume(cmd string, player *Player) {
+func ParseVolume(cmd string, player *Player) { // nolint gocyclo
 	volume := 0
 	split := strings.Split(cmd, " ")
 	if len(split) != 2 {
@@ -85,7 +87,9 @@ func (d *Dispatcher) SayFile(text string) string {
 	}
 
 	f, err := ioutil.TempFile("", "")
-
+	if err != nil {
+		log.Println("could not create tempfile", err)
+	}
 	ioutil.WriteFile(f.Name(), r.MP3Response, 0644)
 	os.Rename(f.Name(), cachedFile)
 
@@ -94,6 +98,9 @@ func (d *Dispatcher) SayFile(text string) string {
 }
 
 func (d *Dispatcher) Say(text string) {
+
+	d.Player.SetVolume(3)
+	defer d.Player.SetVolume(10)
 	cachedFile := d.SayFile(text)
 	base := path.Base(cachedFile)
 
@@ -116,17 +123,19 @@ func (d *Dispatcher) HandleServerSideCommand(cmd string) {
 		d.Say(reply.TextResponse)
 	}
 
-	urls := make([]string, 0)
-	for _, item := range reply.Items {
-		urls = append(urls, item.URL)
+	if len(reply.Items) > 0 {
+		urls := make([]string, 0)
+		for _, item := range reply.Items {
+			urls = append(urls, item.URL)
+		}
+		d.Player.ShuffleURLList(urls)
 	}
-	d.Player.ShuffleURLList(urls)
 }
 
-func (d *Dispatcher) Run() {
+func (d *Dispatcher) Run() { // nolint gocyclo
 	var err error
 
-	ctx, _ := context.WithTimeout(context.Background(), 10 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 
 	d.ClientConfig, err = d.OpenVAServiceClient.ClientConfig(ctx, &api.ClientMessage{
 		SystemUUID: d.HostInfo.HostID,
@@ -155,6 +164,20 @@ func (d *Dispatcher) Run() {
 		case d.ClientConfig.Locale.RebootMessage:
 			d.Say("Rebooting")
 			sysExit("USER_EXIT_REQ")
+		// Timers and Alarms
+		case "set":
+			timerLength := strings.TrimPrefix(cmd, first)
+			d.Say(fmt.Sprintf("%s timer starting now", timerLength))
+		case "wake":
+			alarmWhen := strings.TrimPrefix(cmd, "wake me up at")
+			d.Say(fmt.Sprintf("Alarm set for %s tomorrow", alarmWhen))
+		case "cancel":
+			if strings.Contains(cmd, "timer") {
+				d.Say("Canceling all your timers")
+			}
+			if strings.Contains(cmd, "alarm") {
+				d.Say("Canceling all your alarms")
+			}
 		// Processed by server
 		default:
 			go d.HandleServerSideCommand(cmd)

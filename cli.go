@@ -1,4 +1,4 @@
-package main
+package main // nolint typecheck
 
 import (
 	"bufio"
@@ -17,7 +17,8 @@ func ClearScreen() {
 }
 
 func PrintHeader() {
-	fmt.Println("OpenVA Shell")
+	_ = BuildDate
+	fmt.Printf("OpenVA (%s) v%s-%s (Go %s) UUID:%s Shell\n", ProjectURL, Version, Build[len(Build)-6:], GoVersion, UUID[len(UUID)-12:])
 	fmt.Println("---------------------")
 }
 

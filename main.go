@@ -9,15 +9,19 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/brentnd/go-snowboy"
-	"github.com/gordonklaus/portaudio"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
+	"syscall"
 	"time"
+
+	"google.golang.org/grpc/keepalive"
+
+	"github.com/brentnd/go-snowboy"
+	"github.com/gordonklaus/portaudio"
 
 	"context"
 
@@ -31,10 +35,21 @@ const (
 	OpenVAServerAddress = "localhost:50001"
 	TTSWebServerAddress = "localhost:50005"
 )
+
+// Global vars for versioning
 var (
-	TTSWebServerURL = fmt.Sprintf("http://%s/tts/", TTSWebServerAddress)
+	Build      = "Not available"
+	BuildDate  = "Not available"
+	GoVersion  = "Not available"
+	Version    = "Not available"
+	ProjectURL = "Not available"
+)
+
+var (
+	TTSWebServerURL   = fmt.Sprintf("http://%s/tts/", TTSWebServerAddress)
 	TTSCacheDirectory = path.Join("cache", "tts")
-	CLI = flag.Bool("cli", false, "CLI Only mode")
+	CLI               = flag.Bool("cli", false, "CLI Only mode")
+	UUID              string
 )
 
 func streamReader(stream api.OpenVAService_STTClient, micCh chan bool, commands chan string) {
@@ -119,7 +134,7 @@ func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceCl
 
 	go func() {
 		select {
-		case  <-ctx.Done():
+		case <-ctx.Done():
 			break
 		case <-micCh:
 			break
@@ -168,7 +183,7 @@ func HeartBeat(client api.OpenVAServiceClient, player *Player) {
 
 			err = stream.Send(&api.HeartBeatMessage{
 				SystemInformation: &api.SystemInformationMessage{
-					SystemUUID: v.HostID,
+					SystemUUID:       v.HostID,
 					UptimeSinceEpoch: time.Now().Unix(),
 				},
 				PlayerState: &api.PlayerStateMessage{
@@ -231,7 +246,6 @@ func RecognitionMode(player *Player, commands chan string, client api.OpenVAServ
 	d := snowboy.NewDetector("./resources/common.res")
 	defer d.Close()
 
-
 	// set the handlers
 	d.HandleFunc(snowboy.NewHotword("./resources/alexa_02092017.umdl", 0.5), func(string) {
 		log.Println("You said the hotword!")
@@ -251,14 +265,27 @@ func RecognitionMode(player *Player, commands chan string, client api.OpenVAServ
 	d.ReadAndDetect(mic)
 }
 
-
 func main() {
 	flag.Parse()
 
 	v, _ := host.Info()
-	log.Println("System UUID: ", v.HostID)
+	UUID = v.HostID
+
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(OpenVAServerAddress, grpc.WithInsecure())
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	kp := keepalive.ClientParameters{
+		Time:    20 * time.Second,
+		Timeout: 25 * time.Second,
+	}
+	bc := grpc.BackoffConfig{
+		MaxDelay: 120 * time.Second,
+	}
+	conn, err := grpc.DialContext(
+		ctx, OpenVAServerAddress,
+		grpc.WithInsecure(), grpc.WithBlock(),
+		grpc.WithKeepaliveParams(kp), grpc.WithBackoffConfig(bc),
+	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -285,12 +312,11 @@ func main() {
 	// Clean shutdown (theoretically)
 	sig := make(chan os.Signal, 1)
 	commands := make(chan string)
-	signal.Notify(sig, os.Interrupt, os.Kill)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		select {
-		case s := <-sig:
-			sysExit(s.String())
-		}
+		s := <-sig
+		sysExit(s.String())
+
 	}()
 
 	dispatcher := &Dispatcher{
@@ -304,8 +330,7 @@ func main() {
 	go dispatcher.Run()
 	go HeartBeat(client, player)
 
-
-	if ! *CLI {
+	if !*CLI {
 		RecognitionMode(player, commands, client)
 	} else {
 		RunCLI(commands)

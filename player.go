@@ -2,13 +2,17 @@ package main
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/tb0hdan/gompd-transition/v2/mpd"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/tb0hdan/gompd-transition/v2/mpd"
 )
+
+const Playing = "play"
 
 type Player struct {
 	Conn       *mpd.Client
@@ -71,27 +75,44 @@ func (p *Player) ShuffleURLList(urlList []string) {
 }
 
 func (p *Player) Pause() {
-	if p.Paused {
-		p.Paused = false
-	} else {
-		p.Paused = true
+	state, err := p.State()
+	if err != nil {
+		log.Fatalln(err)
 	}
-
-	p.Conn.Pause(p.Paused)
+	if state == Playing {
+		p.Paused = true
+		p.Conn.Pause(p.Paused)
+	} else {
+		p.Paused = false
+		p.Conn.Pause(p.Paused)
+	}
 }
 
 func (p *Player) Resume() {
-	p.Paused = false
-	p.Conn.Pause(p.Paused)
+	state, err := p.State()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if state != Playing {
+		p.Paused = false
+		p.Conn.Pause(p.Paused)
+	}
 }
 
 func (p *Player) SetVolume(volume int) {
-	p.Volume = volume
 	p.Conn.SetVolume(volume)
 }
 
 func (p *Player) GetVolume() (volume int) {
-	return p.Volume
+	status, err := p.Conn.Status()
+	if err != nil {
+		log.Fatal(err)
+	}
+	vol, err := strconv.Atoi(status["volume"])
+	if err != nil {
+		log.Fatal(err)
+	}
+	return vol
 }
 
 func (p *Player) Clear() {
@@ -114,6 +135,12 @@ func (p *Player) Shuffle() {
 	p.Conn.Shuffle(0, -1)
 }
 
+func (p *Player) State() (state string, err error) {
+	status, err := p.Conn.Status()
+	return status["state"], err
+
+}
+
 func (p *Player) NowPlayingUpdater() {
 	line := ""
 	line1 := ""
@@ -126,7 +153,7 @@ func (p *Player) NowPlayingUpdater() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		if status["state"] == "play" {
+		if status["state"] == Playing {
 			if song["Artist"] != "" {
 				line1 = fmt.Sprintf("%s - %s", song["Artist"], song["Title"])
 			} else {
@@ -135,7 +162,7 @@ func (p *Player) NowPlayingUpdater() {
 			// URL
 			if len(line1) == 0 {
 				artist, _, track := URLToTrack(song["file"])
-				if len(artist) >0 && len(track) > 0 {
+				if len(artist) > 0 && len(track) > 0 {
 					line1 = fmt.Sprintf("%s - %s", artist, track)
 				}
 			}
@@ -143,21 +170,33 @@ func (p *Player) NowPlayingUpdater() {
 		if line != line1 {
 			line = line1
 			p.NowPlaying = line
-			fmt.Println(line)
 		}
-		time.Sleep(1e9)
+		p.Volume = p.GetVolume()
+		time.Sleep(time.Second)
 	}
 }
 
-func NormalizeTrack(track string) (result string) {
-	result = track
-	regexes := []string{`^[0-9]+\s`, `^[0-9]+\-[0-9]+\s`, `\.mp3$`, `\(Official\sMusic\sVideo\)$`, `\(No\sLyrics\)`}
-	for _, reg := range regexes {
+func Normalize(entity string, regexes map[string]string) (result string) {
+	result = entity
+	for reg, replWith := range regexes {
 		re := regexp.MustCompile(reg)
-		result = re.ReplaceAllString(result, "")
+		result = re.ReplaceAllString(result, replWith)
 	}
 	result = strings.TrimSpace(result)
 	return
+}
+
+func NormalizeTrack(track string) string {
+	regexes := map[string]string{`^[0-9]+\s`: "", `^[0-9]+\-[0-9]+\s`: "", `\.mp3$`: "",
+		`\(Official\sMusic\sVideo\)$`: "", `\(No\sLyrics\)`: "",
+		`_`: " ",
+	}
+	return Normalize(track, regexes)
+}
+
+func NormalizeArtist(artist string) string {
+	regexes := map[string]string{`_`: "/"}
+	return Normalize(artist, regexes)
 }
 
 func URLToTrack(urlValue string) (artist, album, track string) {
@@ -178,7 +217,7 @@ func URLToTrack(urlValue string) (artist, album, track string) {
 		return
 	}
 
-	artist = splitPath[0]
+	artist = NormalizeArtist(splitPath[0])
 	album = splitPath[1]
 	track = NormalizeTrack(splitPath[2])
 	return

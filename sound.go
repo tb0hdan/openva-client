@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"github.com/gordonklaus/portaudio"
 )
 
@@ -25,20 +26,20 @@ func (s *Sound) Init() {
 	// initialize the audio recording interface
 	err := portaudio.Initialize()
 	if err != nil {
-		fmt.Errorf("Error initialize audio interface: %s", err)
+		fmt.Errorf("error initializing audio interface: %s", err)
 		return
 	}
 
 	// open the sound input stream for the microphone
 	stream, err := portaudio.OpenDefaultStream(inputChannels, outputChannels, float64(sampleRate), len(s.data), s.data)
 	if err != nil {
-		fmt.Errorf("Error open default audio stream: %s", err)
+		fmt.Errorf("error open default audio stream: %s", err)
 		return
 	}
 
 	err = stream.Start()
 	if err != nil {
-		fmt.Errorf("Error on stream start: %s", err)
+		fmt.Errorf("error on stream start: %s", err)
 		return
 	}
 
