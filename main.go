@@ -143,7 +143,8 @@ func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceCl
 			log.Println("Recognition ctx ", err)
 		}
 		micCh <- true
-		close(micCh)
+		// Race condition
+		// close(micCh)
 		log.Println("Recognition ctx exit")
 	}()
 
@@ -251,6 +252,7 @@ func RecognitionMode(player *Player, commands chan string, client api.OpenVAServ
 		log.Println("You said the hotword!")
 		player.Pause()
 		RunRecognition(commands, mic, client)
+		player.Resume()
 	})
 
 	d.HandleSilenceFunc(1*time.Second, func(string) {

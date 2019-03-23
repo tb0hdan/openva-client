@@ -12,7 +12,10 @@ import (
 	"github.com/tb0hdan/gompd-transition/v2/mpd"
 )
 
-const Playing = "play"
+const (
+	Playing = "play"
+	Paused  = "pause"
+)
 
 type Player struct {
 	Conn       *mpd.Client
@@ -82,10 +85,12 @@ func (p *Player) Pause() {
 	if state == Playing {
 		p.Paused = true
 		p.Conn.Pause(p.Paused)
-	} else {
-		p.Paused = false
-		p.Conn.Pause(p.Paused)
 	}
+	/*
+		else {
+			p.Paused = false
+			p.Conn.Pause(p.Paused)
+		}*/
 }
 
 func (p *Player) Resume() {
@@ -141,7 +146,7 @@ func (p *Player) State() (state string, err error) {
 
 }
 
-func (p *Player) NowPlayingUpdater() {
+func (p *Player) NowPlayingUpdater() { // nolint gocyclo
 	line := ""
 	line1 := ""
 	for {
@@ -166,6 +171,10 @@ func (p *Player) NowPlayingUpdater() {
 					line1 = fmt.Sprintf("%s - %s", artist, track)
 				}
 			}
+		} else if status["state"] == Paused {
+			line = ""
+			line1 = ""
+			p.NowPlaying = ""
 		}
 		if line != line1 {
 			line = line1
