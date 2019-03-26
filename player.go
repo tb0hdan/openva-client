@@ -86,11 +86,6 @@ func (p *Player) Pause() {
 		p.Paused = true
 		p.Conn.Pause(p.Paused)
 	}
-	/*
-		else {
-			p.Paused = false
-			p.Conn.Pause(p.Paused)
-		}*/
 }
 
 func (p *Player) Resume() {
@@ -112,6 +107,11 @@ func (p *Player) GetVolume() (volume int) {
 	status, err := p.Conn.Status()
 	if err != nil {
 		log.Fatal(err)
+	}
+	// Some systems do not allow MPD to get/set volume
+	volumeString := status["volume"]
+	if len(volumeString) == 0 {
+		return 0
 	}
 	vol, err := strconv.Atoi(status["volume"])
 	if err != nil {

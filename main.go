@@ -240,7 +240,8 @@ func RecognitionMode(player *Player, commands chan string, client api.OpenVAServ
 
 	// open the mic
 	mic := &Sound{}
-	mic.Init()
+	//mic.Init()
+	mic.InitLastDevice()
 	defer mic.Close()
 
 	// open the snowboy detector
