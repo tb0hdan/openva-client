@@ -274,6 +274,11 @@ func main() {
 	v, _ := host.Info()
 	UUID = v.HostID
 
+	discoveredOpenVAServer, err := DiscoverOpenVAServers()
+	if err != nil || len(discoveredOpenVAServer) == 0 {
+		discoveredOpenVAServer = OpenVAServerAddress
+	}
+
 	// Set up a connection to the server.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -285,7 +290,7 @@ func main() {
 		MaxDelay: 120 * time.Second,
 	}
 	conn, err := grpc.DialContext(
-		ctx, OpenVAServerAddress,
+		ctx, discoveredOpenVAServer,
 		grpc.WithInsecure(), grpc.WithBlock(),
 		grpc.WithKeepaliveParams(kp), grpc.WithBackoffConfig(bc),
 	)
