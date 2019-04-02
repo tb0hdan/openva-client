@@ -158,6 +158,7 @@ func sysExit(s string) {
 }
 
 func HeartBeat(client api.OpenVAServiceClient, player *Player) {
+	log.Println("Heartbeat started...")
 	heartbeatExit := make(chan bool)
 	v, _ := host.Info()
 	stream, err := client.HeartBeat(context.Background())
@@ -211,6 +212,18 @@ func HeartBeat(client api.OpenVAServiceClient, player *Player) {
 	}
 	<-heartbeatExit
 	log.Println("Hearbeat exit")
+}
+
+func HeartBeatLoop(client api.OpenVAServiceClient, player *Player) {
+	i := 1
+	for {
+		HeartBeat(client, player)
+		time.Sleep(time.Duration(i) * 3 * time.Second)
+		if i > 40 { // Max - 120s sleep
+			i = 1
+		}
+		i++
+	}
 }
 
 func TTSWebServer(address string) {
@@ -336,7 +349,7 @@ func main() {
 	}
 
 	go dispatcher.Run()
-	go HeartBeat(client, player)
+	go HeartBeatLoop(client, player)
 
 	if !*CLI {
 		RecognitionMode(player, commands, client)
