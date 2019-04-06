@@ -185,40 +185,45 @@ func (p *Player) NowPlayingUpdater() { // nolint gocyclo
 	}
 }
 
-func Normalize(entity string, regexes map[string]string) (result string) {
+func Normalize(entity string, regexes [][]string) (result string) {
 	result = entity
-	for reg, replWith := range regexes {
-		re := regexp.MustCompile(reg)
-		result = re.ReplaceAllString(result, replWith)
+	for _, regularExpression := range regexes {
+		re := regexp.MustCompile(regularExpression[0])
+		result = re.ReplaceAllString(result, regularExpression[1])
 	}
 	result = strings.TrimSpace(result)
 	return
 }
 
 func NormalizeTrack(track string) string {
-	regexes := map[string]string{`^[0-9]+\s`: "", `^[0-9]+\-[0-9]+\s`: "", `\.mp3$`: "",
-		`\(Official\sMusic\sVideo\)$`: "", `\(No\sLyrics\)`: "",
-		`_`: " ",
+	regexes := [][]string{
+		{`^[0-9]+\.\s+`, ""}, {`^[0-9]+\s`, ""}, {`^[0-9]+\-[0-9]+\s`, ""},
+		{`\.mp3$`, ""},
+		{`\(Official\sMusic\sVideo\)$`, ""}, {`\(No\sLyrics\)`, ""}, {`\(Official\sVideo\)`, ""},
+		{`_`, " "}, {`^-\s`, ""},
 	}
 	return Normalize(track, regexes)
 }
 
 func NormalizeArtist(artist string) string {
-	regexes := map[string]string{`_`: "/"}
+	regexes := [][]string{
+		{`\(Official\sVideo\)`, ""},
+		{`_`, "/"},
+	}
 	return Normalize(artist, regexes)
 }
 
 func URLToTrack(urlValue string) (artist, album, track string) {
-	url, err := url.Parse(urlValue)
+	parsedURL, err := url.Parse(urlValue)
 	if err != nil {
 		log.Printf("Could not parse url: %s - %+v", urlValue, err)
 		return
 	}
 	// only valid for our library
-	if !strings.HasPrefix(url.Path, "/music/") {
+	if !strings.HasPrefix(parsedURL.Path, "/music/") {
 		return
 	}
-	processablePath := strings.TrimPrefix(url.Path, "/music/")
+	processablePath := strings.TrimPrefix(parsedURL.Path, "/music/")
 
 	splitPath := strings.Split(processablePath, "/")
 	// Artist / Album / Track
@@ -226,8 +231,8 @@ func URLToTrack(urlValue string) (artist, album, track string) {
 		return
 	}
 
-	artist = NormalizeArtist(splitPath[0])
+	artist = NormalizeArtist(strings.TrimSpace(splitPath[0]))
 	album = splitPath[1]
-	track = NormalizeTrack(splitPath[2])
+	track = NormalizeTrack(strings.TrimSpace(splitPath[2]))
 	return
 }

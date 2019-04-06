@@ -1,0 +1,34 @@
+set daemon 10
+   with start delay 10
+
+set log syslog
+
+set alert root@localhost not on { instance, action }
+
+set httpd port 2812 and
+    use address localhost
+    allow localhost
+    allow admin:monit
+
+check system $HOST
+    if loadavg (1min) > 4 then alert
+    if loadavg (5min) > 2 then alert
+    if cpu usage > 95% for 10 cycles then alert
+    if memory usage > 75% then alert
+    if swap usage > 25% then alert
+
+check process mpd_player with pidfile /tmp/mpd_player.pid
+    start program = "./etc/mpd.sh start player"
+    stop  program = "./etc/mpd.sh stop player"
+    if failed port 6600 type tcp with timeout 15 seconds then restart
+    if cpu > 60% for 2 cycles then alert
+    if cpu > 80% for 5 cycles then restart
+    if totalmem > 128.0 MB for 5 cycles then restart
+
+check process mpd_voice with pidfile /tmp/mpd_voice.pid
+    start program = "./etc/mpd.sh start voice"
+    stop  program = "./etc/mpd.sh stop voice"
+    if failed port 6601 type tcp with timeout 15 seconds then restart
+    if cpu > 60% for 2 cycles then alert
+    if cpu > 80% for 5 cycles then restart
+    if totalmem > 128.0 MB for 5 cycles then restart

@@ -10,13 +10,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"syscall"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc/keepalive"
 
@@ -49,6 +50,7 @@ var (
 	TTSWebServerURL   = fmt.Sprintf("http://%s/tts/", TTSWebServerAddress)
 	TTSCacheDirectory = path.Join("cache", "tts")
 	CLI               = flag.Bool("cli", false, "CLI Only mode")
+	Debug             = flag.Bool("debug", false, "Enable debug mode")
 	UUID              string
 )
 
@@ -100,11 +102,11 @@ func micPoll(stream api.OpenVAService_STTClient, micCh chan bool, mic *Sound) {
 
 		select {
 		case <-micCh:
-			log.Println("handing off the mic")
+			log.Debug("handing off the mic")
 			return
 		default:
 		}
-		log.Print(".")
+		log.Debug(".")
 	}
 }
 
@@ -117,7 +119,7 @@ func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceCl
 	// max runDuration
 	stream, err := client.STT(ctx)
 	if err != nil {
-		log.Fatalf("openn stream error %v", err)
+		log.Fatalf("open stream error %v", err)
 
 	}
 
@@ -127,9 +129,9 @@ func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceCl
 		micPoll(stream, micCh, mic)
 
 		if err := stream.CloseSend(); err != nil {
-			log.Println("Recognition poll ", err)
+			log.Debug("Recognition poll ", err)
 		}
-		log.Println("Recognition poll exit")
+		log.Debug("Recognition poll exit")
 	}()
 
 	go func() {
@@ -140,16 +142,16 @@ func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceCl
 			break
 		}
 		if err := ctx.Err(); err != nil {
-			log.Println("Recognition ctx ", err)
+			log.Debug("Recognition ctx ", err)
 		}
 		micCh <- true
 		// Race condition
 		// close(micCh)
-		log.Println("Recognition ctx exit")
+		log.Debug("Recognition ctx exit")
 	}()
 
 	streamReader(stream, micCh, commands)
-	log.Println("Recognition exit...")
+	log.Debug("Recognition exit...")
 }
 
 func sysExit(s string) {
@@ -158,12 +160,12 @@ func sysExit(s string) {
 }
 
 func HeartBeat(client api.OpenVAServiceClient, player *Player) {
-	log.Println("Heartbeat started...")
+	log.Debug("Heartbeat started...")
 	heartbeatExit := make(chan bool)
 	v, _ := host.Info()
 	stream, err := client.HeartBeat(context.Background())
 	if err != nil {
-		log.Println("Heartbeat stopped...", err)
+		log.Debug("Heartbeat stopped...", err)
 		return
 	}
 	ctx := stream.Context()
@@ -204,14 +206,14 @@ func HeartBeat(client api.OpenVAServiceClient, player *Player) {
 		}
 		if err != nil {
 			heartbeatExit <- true
-			log.Println("Cannot stream results: %v", err)
+			log.Debug("Cannot stream results: %v", err)
 			break
 		}
 		_ = resp
-		//log.Println(resp)
+		log.Debug(resp)
 	}
 	<-heartbeatExit
-	log.Println("Hearbeat exit")
+	log.Debug("Hearbeat exit")
 }
 
 func HeartBeatLoop(client api.OpenVAServiceClient, player *Player) {
@@ -234,7 +236,10 @@ func TTSWebServer(address string) {
 	handler.Handle("/tts/", http.StripPrefix("/tts/", fs))
 
 	handler.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Nothing here")
+		_, err := fmt.Fprintf(w, "Nothing here")
+		if err != nil {
+			log.Debug(err)
+		}
 	})
 
 	srv := http.Server{Addr: address, Handler: handler}
@@ -283,6 +288,9 @@ func RecognitionMode(player *Player, commands chan string, client api.OpenVAServ
 
 func main() {
 	flag.Parse()
+	if *Debug {
+		log.SetLevel(log.DebugLevel)
+	}
 
 	v, _ := host.Info()
 	UUID = v.HostID

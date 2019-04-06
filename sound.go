@@ -4,7 +4,8 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/gordonklaus/portaudio"
 )
