@@ -1,6 +1,10 @@
 set daemon 10
    with start delay 10
 
+set pidfile /tmp/monit.pid
+set idfile /tmp/monit.id
+set statefile /tmp/monit.state
+
 set log syslog
 
 set alert root@localhost not on { instance, action }

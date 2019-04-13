@@ -207,6 +207,7 @@ func NormalizeTrack(track string) string {
 
 func NormalizeArtist(artist string) string {
 	regexes := [][]string{
+		{`\[mp3ex\.net\]`, ""},
 		{`\(Official\sVideo\)`, ""},
 		{`_`, "/"},
 	}
