@@ -5,8 +5,9 @@ set pidfile /tmp/monit.pid
 set idfile /tmp/monit.id
 set statefile /tmp/monit.state
 
-set log syslog
+set log /tmp/monit.log
 
+set mailserver localhost
 set alert root@localhost not on { instance, action }
 
 set httpd port 2812 and

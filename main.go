@@ -51,6 +51,7 @@ var (
 	TTSCacheDirectory = path.Join("cache", "tts")
 	CLI               = flag.Bool("cli", false, "CLI Only mode")
 	Debug             = flag.Bool("debug", false, "Enable debug mode")
+	ExternalServer   = flag.String("server", "", "External OpenVA server address (hostname:port)")
 	UUID              string
 )
 
@@ -110,12 +111,11 @@ func micPoll(stream api.OpenVAService_STTClient, micCh chan bool, mic *Sound) {
 	}
 }
 
-func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceClient) {
+func RunRecognition(commands chan string, mic *Sound, client api.OpenVAServiceClient, authenticator *Authenticator) {
 	micCh := make(chan bool, 1)
 
-	runDuration := 5 * time.Second
-	bgctx := context.Background()
-	ctx, _ := context.WithDeadline(bgctx, time.Now().Add(runDuration))
+	ctx := authenticator.AuthWithDeadline(5)
+
 	// max runDuration
 	stream, err := client.STT(ctx)
 	if err != nil {
@@ -159,16 +159,20 @@ func sysExit(s string) {
 	os.Exit(0)
 }
 
-func HeartBeat(client api.OpenVAServiceClient, player *Player) {
+func HeartBeat(client api.OpenVAServiceClient, player *Player, authenticator *Authenticator) {
 	log.Debug("Heartbeat started...")
 	heartbeatExit := make(chan bool)
 	v, _ := host.Info()
-	stream, err := client.HeartBeat(context.Background())
+
+	ctx := authenticator.AuthWithoutTimeout()
+
+	stream, err := client.HeartBeat(ctx)
 	if err != nil {
 		log.Debug("Heartbeat stopped...", err)
 		return
 	}
-	ctx := stream.Context()
+	ctx = stream.Context()
+
 	go func() {
 		defer func() {
 			if err := stream.CloseSend(); err != nil {
@@ -216,10 +220,10 @@ func HeartBeat(client api.OpenVAServiceClient, player *Player) {
 	log.Debug("Hearbeat exit")
 }
 
-func HeartBeatLoop(client api.OpenVAServiceClient, player *Player) {
+func HeartBeatLoop(client api.OpenVAServiceClient, player *Player, authenticator *Authenticator) {
 	i := 1
 	for {
-		HeartBeat(client, player)
+		HeartBeat(client, player, authenticator)
 		time.Sleep(time.Duration(i) * 3 * time.Second)
 		if i > 40 { // Max - 120s sleep
 			i = 1
@@ -250,7 +254,7 @@ func TTSWebServer(address string) {
 	}()
 }
 
-func RecognitionMode(player *Player, commands chan string, client api.OpenVAServiceClient) {
+func RecognitionMode(player *Player, commands chan string, client api.OpenVAServiceClient, authenticator *Authenticator) {
 
 	// connect to the audio drivers
 	portaudio.Initialize()
@@ -270,7 +274,7 @@ func RecognitionMode(player *Player, commands chan string, client api.OpenVAServ
 	d.HandleFunc(snowboy.NewHotword("./resources/alexa_02092017.umdl", 0.5), func(string) {
 		log.Println("You said the hotword!")
 		player.Pause()
-		RunRecognition(commands, mic, client)
+		RunRecognition(commands, mic, client, authenticator)
 		player.Resume()
 	})
 
@@ -295,13 +299,23 @@ func main() {
 	v, _ := host.Info()
 	UUID = v.HostID
 
-	discoveredOpenVAServer, err := DiscoverOpenVAServers()
-	if err != nil || len(discoveredOpenVAServer) == 0 {
-		discoveredOpenVAServer = OpenVAServerAddress
+	authenticator, err := NewAuthenticator("../passwd")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	discoveredOpenVAServer := OpenVAServerAddress
+	if *ExternalServer != "" {
+		discoveredOpenVAServer = *ExternalServer
+	} else {
+		if discovered, err := DiscoverOpenVAServers(); err == nil && len(discovered) > 0 {
+			discoveredOpenVAServer = discovered
+		}
 	}
 
 	// Set up a connection to the server.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
 	defer cancel()
 	kp := keepalive.ClientParameters{
 		Time:    20 * time.Second,
@@ -312,7 +326,8 @@ func main() {
 	}
 	conn, err := grpc.DialContext(
 		ctx, discoveredOpenVAServer,
-		grpc.WithInsecure(), grpc.WithBlock(),
+		grpc.WithBlock(),
+		grpc.WithInsecure(),
 		grpc.WithKeepaliveParams(kp), grpc.WithBackoffConfig(bc),
 	)
 	if err != nil {
@@ -354,13 +369,14 @@ func main() {
 		Voice:               voice,
 		Commands:            commands,
 		HostInfo:            v,
+		Authenticator: authenticator,
 	}
 
 	go dispatcher.Run()
-	go HeartBeatLoop(client, player)
+	go HeartBeatLoop(client, player, authenticator)
 
 	if !*CLI {
-		RecognitionMode(player, commands, client)
+		RecognitionMode(player, commands, client, authenticator)
 	} else {
 		RunCLI(commands)
 	}

@@ -1,18 +1,15 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
-	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/shirou/gopsutil/host"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/tb0hdan/openva-server/api"
 )
@@ -69,6 +66,7 @@ type Dispatcher struct {
 	Commands            <-chan string
 	HostInfo            *host.InfoStat
 	ClientConfig        *api.ClientConfigMessage
+	Authenticator       *Authenticator
 }
 
 func (d *Dispatcher) SayFile(text string) string {
@@ -79,8 +77,7 @@ func (d *Dispatcher) SayFile(text string) string {
 	if os.IsExist(err) {
 		return cachedFile
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := d.Authenticator.AuthWithTimeout(1)
 	defer cancel()
 	r, err := d.OpenVAServiceClient.TTSStringToMP3(ctx, &api.TTSRequest{Text: text})
 	if err != nil {
@@ -110,7 +107,8 @@ func (d *Dispatcher) Say(text string) {
 }
 
 func (d *Dispatcher) HandleServerSideCommand(cmd string) {
-	reply, err := d.OpenVAServiceClient.HandleServerSideCommand(context.Background(), &api.TTSRequest{Text: cmd})
+
+	reply, err := d.OpenVAServiceClient.HandleServerSideCommand(d.Authenticator.AuthWithoutTimeout(), &api.TTSRequest{Text: cmd})
 	if err != nil {
 		d.Say(d.ClientConfig.Locale.CouldNotUnderstandMessage)
 		return
@@ -136,7 +134,8 @@ func (d *Dispatcher) HandleServerSideCommand(cmd string) {
 func (d *Dispatcher) Run() { // nolint gocyclo
 	var err error
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := d.Authenticator.AuthWithTimeout(10)
+	defer cancel()
 
 	d.ClientConfig, err = d.OpenVAServiceClient.ClientConfig(ctx, &api.ClientMessage{
 		SystemUUID: d.HostInfo.HostID,
