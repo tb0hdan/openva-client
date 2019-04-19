@@ -201,6 +201,8 @@ func NormalizeTrack(track string) string {
 		{`\.mp3$`, ""},
 		{`\(Official\sMusic\sVideo\)$`, ""}, {`\(No\sLyrics\)`, ""}, {`\(Official\sVideo\)`, ""},
 		{`_`, " "}, {`^-\s`, ""},
+		{`&amp;`, "&"},
+		{`&#39;`, "'"},
 	}
 	return Normalize(track, regexes)
 }
@@ -210,6 +212,8 @@ func NormalizeArtist(artist string) string {
 		{`\[mp3ex\.net\]`, ""},
 		{`\(Official\sVideo\)`, ""},
 		{`_`, "/"},
+		{`&amp;`, "&"},
+		{`&#39;`, "'"},
 	}
 	return Normalize(artist, regexes)
 }
@@ -228,12 +232,18 @@ func URLToTrack(urlValue string) (artist, album, track string) {
 
 	splitPath := strings.Split(processablePath, "/")
 	// Artist / Album / Track
-	if len(splitPath) != 3 {
-		return
+	if len(splitPath) == 3 {
+		artist = NormalizeArtist(strings.TrimSpace(splitPath[0]))
+		album = splitPath[1]
+		track = NormalizeTrack(strings.TrimSpace(splitPath[2]))
+	// special case, "/music/unsorted" directory with just tracks in it
+	} else if len(splitPath) == 2 && splitPath[0] == "unsorted" {
+		splitTrack := strings.Split(splitPath[1], " - ")
+		if len(splitTrack) == 2 {
+			artist = NormalizeArtist(strings.TrimSpace(splitTrack[0]))
+			track = NormalizeTrack(strings.TrimSpace(splitTrack[1]))
+		}
 	}
 
-	artist = NormalizeArtist(strings.TrimSpace(splitPath[0]))
-	album = splitPath[1]
-	track = NormalizeTrack(strings.TrimSpace(splitPath[2]))
 	return
 }
