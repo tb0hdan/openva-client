@@ -203,6 +203,9 @@ func NormalizeTrack(track string) string {
 		{`_`, " "}, {`^-\s`, ""},
 		{`&amp;`, "&"},
 		{`&#39;`, "'"},
+		{`on_t`, `on't'`}, // D?on't
+		{`_$`, ``},        // HOW WOULD YOU FEEL_ - David Morales
+		{`\(?zaycev.net\)?`, ``},
 	}
 	return Normalize(track, regexes)
 }
@@ -236,7 +239,7 @@ func URLToTrack(urlValue string) (artist, album, track string) {
 		artist = NormalizeArtist(strings.TrimSpace(splitPath[0]))
 		album = splitPath[1]
 		track = NormalizeTrack(strings.TrimSpace(splitPath[2]))
-	// special case, "/music/unsorted" directory with just tracks in it
+		// special case, "/music/unsorted" directory with just tracks in it
 	} else if len(splitPath) == 2 && splitPath[0] == "unsorted" {
 		splitTrack := strings.Split(splitPath[1], " - ")
 		if len(splitTrack) == 2 {

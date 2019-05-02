@@ -51,7 +51,7 @@ var (
 	TTSCacheDirectory = path.Join("cache", "tts")
 	CLI               = flag.Bool("cli", false, "CLI Only mode")
 	Debug             = flag.Bool("debug", false, "Enable debug mode")
-	ExternalServer   = flag.String("server", "", "External OpenVA server address (hostname:port)")
+	ExternalServer    = flag.String("server", "", "External OpenVA server address (hostname:port)")
 	UUID              string
 )
 
@@ -369,7 +369,7 @@ func main() {
 		Voice:               voice,
 		Commands:            commands,
 		HostInfo:            v,
-		Authenticator: authenticator,
+		Authenticator:       authenticator,
 	}
 
 	go dispatcher.Run()

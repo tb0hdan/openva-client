@@ -1,4 +1,4 @@
-package main
+package main // nolint illegal character
 
 import (
 	"context"
@@ -12,10 +12,10 @@ import (
 
 type Authenticator struct {
 	authFileName string
-	authToken string
+	authToken    string
 }
 
-func (a *Authenticator) ReadAuthData() (token string, err error){
+func (a *Authenticator) ReadAuthData() (token string, err error) {
 	data, err := ioutil.ReadFile(a.authFileName)
 	if err != nil {
 		return "", errors.Wrap(err, "ReadAuthData failed")
@@ -51,7 +51,7 @@ func NewAuthenticator(authFileName string) (*Authenticator, error) {
 		return nil, err
 	}
 	if len(token) == 0 {
-		return nil, errors.New("Token length is zero")
+		return nil, errors.New("token length is zero")
 	}
 	authenticator.authToken = token
 	return authenticator, nil
