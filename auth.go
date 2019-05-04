@@ -2,8 +2,6 @@ package main // nolint illegal character
 
 import (
 	"context"
-	"io/ioutil"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -11,16 +9,7 @@ import (
 )
 
 type Authenticator struct {
-	authFileName string
-	authToken    string
-}
-
-func (a *Authenticator) ReadAuthData() (token string, err error) {
-	data, err := ioutil.ReadFile(a.authFileName)
-	if err != nil {
-		return "", errors.Wrap(err, "ReadAuthData failed")
-	}
-	return strings.Trim(string(data), " \n"), nil
+	authToken string
 }
 
 func (a *Authenticator) AddAuthToContext(ctx context.Context) context.Context {
@@ -42,14 +31,12 @@ func (a *Authenticator) AuthWithDeadline(deadlineSeconds int) context.Context {
 	return a.AddAuthToContext(ctx)
 }
 
-func NewAuthenticator(authFileName string) (*Authenticator, error) {
-	authenticator := &Authenticator{
-		authFileName: authFileName,
-	}
-	token, err := authenticator.ReadAuthData()
-	if err != nil {
-		return nil, err
-	}
+func NewAuthenticatorFromString(token string) (*Authenticator, error) {
+	authenticator := &Authenticator{}
+	return AuthenticatorFromString(authenticator, token)
+}
+
+func AuthenticatorFromString(authenticator *Authenticator, token string) (*Authenticator, error) {
 	if len(token) == 0 {
 		return nil, errors.New("token length is zero")
 	}

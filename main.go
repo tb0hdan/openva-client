@@ -17,7 +17,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"google.golang.org/grpc/keepalive"
 
@@ -299,7 +301,18 @@ func main() {
 	v, _ := host.Info()
 	UUID = v.HostID
 
-	authenticator, err := NewAuthenticator("../passwd")
+	viper.SetConfigName("openva-client")
+	viper.AddConfigPath("/etc/openva-client/")
+	viper.AddConfigPath("$HOME/.openva-client")
+	viper.AddConfigPath("..")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(errors.Errorf("fatal error config file: %s", err))
+	}
+
+	log.Debugf("Reading configuration from %s", viper.ConfigFileUsed())
+
+	authenticator, err := NewAuthenticatorFromString(viper.GetString("AuthToken"))
 	if err != nil {
 		log.Fatal(err)
 	}
