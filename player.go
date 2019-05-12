@@ -232,6 +232,7 @@ func URLToTrack(urlValue string) (artist, album, track string) {
 		return
 	}
 	processablePath := strings.TrimPrefix(parsedURL.Path, "/music/")
+	log.Debug(processablePath)
 
 	splitPath := strings.Split(processablePath, "/")
 	// Artist / Album / Track
@@ -239,14 +240,21 @@ func URLToTrack(urlValue string) (artist, album, track string) {
 		artist = NormalizeArtist(strings.TrimSpace(splitPath[0]))
 		album = splitPath[1]
 		track = NormalizeTrack(strings.TrimSpace(splitPath[2]))
-		// special case, "/music/unsorted" directory with just tracks in it
-	} else if len(splitPath) == 2 && splitPath[0] == "unsorted" {
+		// special case, "/music/xxx" directory with just tracks in it
+	} else if len(splitPath) == 2 {
 		splitTrack := strings.Split(splitPath[1], " - ")
 		if len(splitTrack) == 2 {
 			artist = NormalizeArtist(strings.TrimSpace(splitTrack[0]))
 			track = NormalizeTrack(strings.TrimSpace(splitTrack[1]))
+		} else {
+			splitTrack = strings.Split(splitPath[1], " ━ ")
+			if len(splitTrack) == 2 {
+				artist = NormalizeArtist(strings.TrimSpace(splitTrack[0]))
+				track = NormalizeTrack(strings.TrimSpace(splitTrack[1]))
+			}
 		}
+
 	}
 
-	return
+	return artist, album, track
 }

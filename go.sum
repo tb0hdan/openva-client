@@ -123,8 +123,8 @@ github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/tb0hdan/gompd-transition/v2 v2.0.6 h1:FRqhILzvgwtRzVBW0dlM+60kDUUR9ptkqFXBjN4627k=
 github.com/tb0hdan/gompd-transition/v2 v2.0.6/go.mod h1:2If67sEwoV+I0EyxVkA8H89Y/5i8dvKOpxpBepGbFIU=
-github.com/tb0hdan/openva-server v0.0.0-20190419064949-ce9807210710 h1:kY0/fAlF5YnwPylwytaTOAEeTYQ5aWVwxmXjEKobCEk=
-github.com/tb0hdan/openva-server v0.0.0-20190419064949-ce9807210710/go.mod h1:zOXA4eIE5G2IZBLkRzlgmOja08clUDcz6lVCdUt3LvE=
+github.com/tb0hdan/openva-server v0.0.0-20190511100036-5aa841a3a7dd h1:kq3U7idpdfGVN+aiAHupFc78dK7k3JxHd751CpkhZxo=
+github.com/tb0hdan/openva-server v0.0.0-20190511100036-5aa841a3a7dd/go.mod h1:zOXA4eIE5G2IZBLkRzlgmOja08clUDcz6lVCdUt3LvE=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=

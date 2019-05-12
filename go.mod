@@ -15,6 +15,6 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/viper v1.3.2
 	github.com/tb0hdan/gompd-transition/v2 v2.0.6
-	github.com/tb0hdan/openva-server v0.0.0-20190419064949-ce9807210710
+	github.com/tb0hdan/openva-server v0.0.0-20190511100036-5aa841a3a7dd
 	google.golang.org/grpc v1.20.1
 )

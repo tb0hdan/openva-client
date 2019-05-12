@@ -305,6 +305,7 @@ func main() {
 	viper.AddConfigPath("/etc/openva-client/")
 	viper.AddConfigPath("$HOME/.openva-client")
 	viper.AddConfigPath("..")
+
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(errors.Errorf("fatal error config file: %s", err))
