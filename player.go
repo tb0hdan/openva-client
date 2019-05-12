@@ -232,7 +232,6 @@ func URLToTrack(urlValue string) (artist, album, track string) {
 		return
 	}
 	processablePath := strings.TrimPrefix(parsedURL.Path, "/music/")
-	log.Debug(processablePath)
 
 	splitPath := strings.Split(processablePath, "/")
 	// Artist / Album / Track
