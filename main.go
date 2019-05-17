@@ -256,7 +256,7 @@ func TTSWebServer(address string) {
 	}()
 }
 
-func RecognitionMode(player *Player, commands chan string, client api.OpenVAServiceClient, authenticator *Authenticator) {
+func RecognitionMode(player *Player, commands chan string, client api.OpenVAServiceClient, authenticator *Authenticator, baseDir string) {
 
 	// connect to the audio drivers
 	portaudio.Initialize()
@@ -269,11 +269,11 @@ func RecognitionMode(player *Player, commands chan string, client api.OpenVAServ
 	defer mic.Close()
 
 	// open the snowboy detector
-	d := snowboy.NewDetector("./resources/common.res")
+	d := snowboy.NewDetector(path.Join(baseDir, "resources/common.res"))
 	defer d.Close()
 
 	// set the handlers
-	d.HandleFunc(snowboy.NewHotword("./resources/alexa_02092017.umdl", 0.5), func(string) {
+	d.HandleFunc(snowboy.NewHotword(path.Join(baseDir, "resources/alexa_02092017.umdl"), 0.5), func(string) {
 		log.Println("You said the hotword!")
 		player.Pause()
 		RunRecognition(commands, mic, client, authenticator)
@@ -301,6 +301,7 @@ func main() {
 	v, _ := host.Info()
 	UUID = v.HostID
 
+	viper.SetDefault("BaseDir", ".")
 	viper.SetConfigName("openva-client")
 	viper.AddConfigPath("/etc/openva-client/")
 	viper.AddConfigPath("$HOME/.openva-client")
@@ -390,7 +391,7 @@ func main() {
 	go HeartBeatLoop(client, player, authenticator)
 
 	if !*CLI {
-		RecognitionMode(player, commands, client, authenticator)
+		RecognitionMode(player, commands, client, authenticator, viper.GetString("BaseDir"))
 	} else {
 		RunCLI(commands)
 	}
