@@ -45,11 +45,11 @@ func (p *Player) Close() {
 }
 
 func (p *Player) Add(url string) {
-	p.Conn.Add(url)
+	_ = p.Conn.Add(url)
 }
 
 func (p *Player) Play(pos int) {
-	p.Conn.Play(pos)
+	_ = p.Conn.Play(pos)
 }
 
 func (p *Player) PlayURL(url string) {
@@ -62,16 +62,16 @@ func (p *Player) PlayURL(url string) {
 
 func (p *Player) PlayURLList(urlList []string) {
 	p.Clear()
-	for _, url := range urlList {
-		p.Add(url)
+	for _, playlistURL := range urlList {
+		p.Add(playlistURL)
 	}
 	p.Play(0)
 }
 
 func (p *Player) ShuffleURLList(urlList []string) {
 	p.Clear()
-	for _, url := range urlList {
-		p.Add(url)
+	for _, playlistURL := range urlList {
+		p.Add(playlistURL)
 	}
 	p.Shuffle()
 	p.Play(0)
@@ -84,7 +84,7 @@ func (p *Player) Pause() {
 	}
 	if state == Playing {
 		p.Paused = true
-		p.Conn.Pause(p.Paused)
+		_ = p.Conn.Pause(p.Paused)
 	}
 }
 
@@ -95,12 +95,12 @@ func (p *Player) Resume() {
 	}
 	if state != Playing {
 		p.Paused = false
-		p.Conn.Pause(p.Paused)
+		_ = p.Conn.Pause(p.Paused)
 	}
 }
 
 func (p *Player) SetVolume(volume int) {
-	p.Conn.SetVolume(volume)
+	_ = p.Conn.SetVolume(volume)
 }
 
 func (p *Player) GetVolume() (volume int) {
@@ -121,23 +121,23 @@ func (p *Player) GetVolume() (volume int) {
 }
 
 func (p *Player) Clear() {
-	p.Conn.Clear()
+	_ = p.Conn.Clear()
 }
 
 func (p *Player) Next() {
-	p.Conn.Next()
+	_ = p.Conn.Next()
 }
 
 func (p *Player) Previous() {
-	p.Conn.Previous()
+	_ = p.Conn.Previous()
 }
 
 func (p *Player) Stop() {
-	p.Conn.Stop()
+	_ = p.Conn.Stop()
 }
 
 func (p *Player) Shuffle() {
-	p.Conn.Shuffle(0, -1)
+	_ = p.Conn.Shuffle(0, -1)
 }
 
 func (p *Player) State() (state string, err error) {

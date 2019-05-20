@@ -11,7 +11,7 @@ import (
 func ClearScreen() {
 	switch runtime.GOOS {
 	case "darwin", "linux":
-		os.Stdout.WriteString("\x1b[3;J\x1b[H\x1b[2J")
+		_, _ = os.Stdout.WriteString("\x1b[3;J\x1b[H\x1b[2J")
 	default:
 	}
 }
