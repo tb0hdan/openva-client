@@ -312,6 +312,8 @@ func main() {
 		panic(errors.Errorf("fatal error config file: %s", err))
 	}
 
+	TTSCacheDirectory = path.Join(viper.GetString("BaseDir"), TTSCacheDirectory)
+
 	log.Debugf("Reading configuration from %s", viper.ConfigFileUsed())
 
 	authenticator, err := NewAuthenticatorFromString(viper.GetString("AuthToken"))

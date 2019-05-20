@@ -197,15 +197,26 @@ func Normalize(entity string, regexes [][]string) (result string) {
 
 func NormalizeTrack(track string) string {
 	regexes := [][]string{
-		{`^[0-9]+\.\s+`, ""}, {`^[0-9]+\s`, ""}, {`^[0-9]+\-[0-9]+\s`, ""},
-		{`\.mp3$`, ""},
-		{`\(Official\sMusic\sVideo\)$`, ""}, {`\(No\sLyrics\)`, ""}, {`\(Official\sVideo\)`, ""},
-		{`_`, " "}, {`^-\s`, ""},
+		{`^[0-9]+\.\s+`, ``}, {`^[0-9]+\s`, ``}, {`^[0-9]+\-[0-9]+\s`, ``},
+		{`\.mp3$`, ``}, {`\.wmv$`, ``},
+		{`\(Official\sMusic\sVideo\)$`, ``}, {`\(No\sLyrics\)`, ``}, {`\s?\(?Official\sVideo\)?$`, ``},
+		{`\s?\[?Official\sMusic\sVideo\]?$`, ``},
+		{`\s?\[?Lyrics\]?$`, ``},
+		{`\s?lyrics$`, ``},
+		{`_`, " "}, {`^-\s`, ``},
 		{`&amp;`, "&"},
 		{`&#39;`, "'"},
 		{`on_t`, `on't'`}, // D?on't
 		{`_$`, ``},        // HOW WOULD YOU FEEL_ - David Morales
 		{`\(?zaycev.net\)?`, ``},
+		{`\s?\[?HQ\]?$`, ``},
+		{`\s?\(?HD\)?$`, ``},
+		{`\s+\[?Ultra\sMusic\]?$`, ``},
+		{`(FULL)?\s?HD$`, ``},
+		{`\s?\(?Official\sVideo\s?HD\)?$`, ``},
+		{`\s?\[?OUT\sNOW\]?$`, ``},
+		{`\s\(?Lyric\sVideo\)?$`, ``},
+		{`\s?Promo\sVideo$`, ``},
 	}
 	return Normalize(track, regexes)
 }

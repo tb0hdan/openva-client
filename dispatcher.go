@@ -77,7 +77,7 @@ func (d *Dispatcher) SayFile(text string) string {
 	if os.IsExist(err) {
 		return cachedFile
 	}
-	ctx, cancel := d.Authenticator.AuthWithTimeout(1)
+	ctx, cancel := d.Authenticator.AuthWithTimeout(3)
 	defer cancel()
 	r, err := d.OpenVAServiceClient.TTSStringToMP3(ctx, &api.TTSRequest{Text: text})
 	if err != nil {
@@ -97,8 +97,9 @@ func (d *Dispatcher) SayFile(text string) string {
 
 func (d *Dispatcher) Say(text string) {
 
-	d.Player.SetVolume(3)
-	defer d.Player.SetVolume(10)
+	playerVolume := d.Player.GetVolume()
+	d.Player.SetVolume(0)
+	defer d.Player.SetVolume(playerVolume)
 	cachedFile := d.SayFile(text)
 	base := path.Base(cachedFile)
 
