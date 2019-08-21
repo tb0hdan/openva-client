@@ -292,7 +292,7 @@ func RecognitionMode(player *Player, commands chan string, client api.OpenVAServ
 	d.ReadAndDetect(mic)
 }
 
-func main() {
+func main() { // nolint gocyclo
 	flag.Parse()
 	if *Debug {
 		log.SetLevel(log.DebugLevel)
@@ -302,6 +302,7 @@ func main() {
 	UUID = v.HostID
 
 	viper.SetDefault("BaseDir", ".")
+	viper.SetDefault("FallbackServer", OpenVAServerAddress)
 	viper.SetConfigName("openva-client")
 	viper.AddConfigPath("/etc/openva-client/")
 	viper.AddConfigPath("$HOME/.openva-client")
@@ -328,6 +329,10 @@ func main() {
 		if discovered, err := DiscoverOpenVAServers(); err == nil && len(discovered) > 0 {
 			discoveredOpenVAServer = discovered
 		}
+	}
+	// Use fallback server if it's not localhost
+	if discoveredOpenVAServer == OpenVAServerAddress && discoveredOpenVAServer != viper.GetString("FallbackServer") {
+		discoveredOpenVAServer = viper.GetString("FallbackServer")
 	}
 
 	// Set up a connection to the server.
